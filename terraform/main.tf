@@ -121,14 +121,19 @@ resource "aws_instance" "cloudlink" {
   }
 }
 
-# Static Elastic IP — survives terraform destroy/apply cycles
-# Update EC2_HOST GitHub Secret once after first `terraform apply`; it never changes again.
+# Elastic IP — allocated independently so it survives EC2 instance replacements.
+# Destroy this ONLY if you want to release the IP address permanently.
 resource "aws_eip" "cloudlink" {
-  instance = aws_instance.cloudlink.id
-  domain   = "vpc"
+  domain = "vpc"
 
   tags = {
     Name    = "${var.project_name}-eip"
     Project = var.project_name
   }
+}
+
+# Association is separate so destroying the EC2 instance leaves the EIP intact.
+resource "aws_eip_association" "cloudlink" {
+  instance_id   = aws_instance.cloudlink.id
+  allocation_id = aws_eip.cloudlink.id
 }
