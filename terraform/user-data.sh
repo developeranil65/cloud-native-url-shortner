@@ -10,7 +10,7 @@
 #       Shell $variables use $$ to escape Terraform interpolation.
 # =============================================================================
 
-set -euo pipefail
+set -ux
 
 # Log all output for debugging (viewable via: sudo cat /var/log/cloud-init-output.log)
 exec > >(tee /var/log/cloudlink-deploy.log) 2>&1
@@ -26,8 +26,17 @@ apt-get upgrade -y
 # -----------------------------------------------------------------------------
 # 2. Install Docker
 # -----------------------------------------------------------------------------
-echo ">>> Installing Docker from Ubuntu repositories..."
-apt-get install -y docker.io docker-compose-v2
+echo ">>> Installing Docker..."
+apt-get install -y docker.io
+
+# Ensure docker compose plugin is available
+# On Ubuntu 26.04, docker compose ships with docker.io
+if ! docker compose version &>/dev/null; then
+  apt-get install -y docker-compose-plugin || apt-get install -y docker-compose-v2 || true
+fi
+
+echo ">>> Docker version: $(docker --version)"
+echo ">>> Docker Compose version: $(docker compose version)"
 
 # Enable and start Docker
 systemctl enable docker
