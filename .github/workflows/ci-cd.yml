@@ -155,6 +155,9 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
+            echo "Waiting for EC2 provisioning to finish..."
+            cloud-init status --wait
+            
             echo "Deploying CloudLink URL Shortener..."
             cd /opt/cloudlink
             
