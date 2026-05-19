@@ -283,6 +283,8 @@ jobs:
                 scrape_interval: 10s
                 static_configs:
                   - targets: ['backend:5000']
+                    labels:
+                      service: 'backend'
             PROMEOF
 
             echo "Writing Grafana provisioning files..."
