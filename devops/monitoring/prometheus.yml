@@ -1,0 +1,36 @@
+# =============================================================================
+# Prometheus Configuration - Cloud Native URL Shortener
+# =============================================================================
+# All targets use Docker service names — no localhost references.
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+# =============================================================================
+# Scrape Configurations
+# =============================================================================
+scrape_configs:
+
+  # ---------------------------------------------------------------------------
+  # Prometheus self-monitoring
+  # ---------------------------------------------------------------------------
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
+        labels:
+          service: 'prometheus'
+
+  # ---------------------------------------------------------------------------
+  # URL Shortener Backend API metrics
+  # ---------------------------------------------------------------------------
+  - job_name: 'cloudlink-backend'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['backend:5000']
+        labels:
+          service: 'backend'
+          environment: 'production'

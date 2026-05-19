@@ -1,0 +1,93 @@
+# =============================================================================
+# Frontend Deployment
+# =============================================================================
+# Image pulled from DockerHub: <your-dockerhub-username>/cloudlink-frontend
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: cloudlink
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/part-of: cloudlink
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/component: ui
+    spec:
+      containers:
+        - name: frontend
+          image: yourdockerhubusername/cloudlink-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            # Nginx backend proxy target (K8s service name)
+            - name: BACKEND_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudlink-config
+                  key: BACKEND_HOST
+            - name: BACKEND_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudlink-config
+                  key: BACKEND_PORT
+            # Runtime env config for the React app
+            - name: API_BASE_URL
+              value: "/api"
+            - name: BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudlink-config
+                  key: BASE_URL
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+# =============================================================================
+# Frontend Service
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: cloudlink
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: ui
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http

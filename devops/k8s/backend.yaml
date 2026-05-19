@@ -1,0 +1,94 @@
+# =============================================================================
+# Backend Deployment
+# =============================================================================
+# Image pulled from DockerHub: <your-dockerhub-username>/cloudlink-backend
+# =============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: cloudlink
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: cloudlink
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: backend
+          image: yourdockerhubusername/cloudlink-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+              name: http
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudlink-config
+                  key: PORT
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudlink-config
+                  key: NODE_ENV
+            - name: BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cloudlink-config
+                  key: BASE_URL
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: cloudlink-secrets
+                  key: MONGO_URI
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+# =============================================================================
+# Backend Service
+# =============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: cloudlink
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP
+      name: http

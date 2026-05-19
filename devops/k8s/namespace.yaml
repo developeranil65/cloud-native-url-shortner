@@ -1,0 +1,10 @@
+# =============================================================================
+# Namespace for the CloudLink application
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudlink
+  labels:
+    app.kubernetes.io/name: cloudlink
+    app.kubernetes.io/part-of: url-shortener

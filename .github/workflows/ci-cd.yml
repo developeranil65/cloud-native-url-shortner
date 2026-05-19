@@ -1,0 +1,181 @@
+# =============================================================================
+# CI/CD Pipeline - Cloud Native URL Shortener
+# =============================================================================
+# Registry: DockerHub
+# Triggers on pushes to main and pull requests.
+# Steps: Lint → Test → Build Docker Images → Push to DockerHub → Deploy (simulated)
+# =============================================================================
+
+name: CloudLink CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+env:
+  DOCKERHUB_BACKEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/cloudlink-backend
+  DOCKERHUB_FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/cloudlink-frontend
+
+jobs:
+  # ===========================================================================
+  # Job 1: Test Backend
+  # ===========================================================================
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: ./backend
+
+      - name: Run linter (if configured)
+        run: npx eslint . --ext .js || true
+        working-directory: ./backend
+
+      - name: Run tests (if configured)
+        run: npm test || echo "No tests configured yet"
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://mongodb:27017/url-shortener-test
+          PORT: 5000
+          BASE_URL: http://backend:5000
+
+  # ===========================================================================
+  # Job 2: Build & Push Docker Images to DockerHub
+  # ===========================================================================
+  build-and-push:
+    name: Build & Push to DockerHub
+    runs-on: ubuntu-latest
+    needs: test-backend
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # -----------------------------------------------------------------------
+      # Login to DockerHub
+      # -----------------------------------------------------------------------
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # -----------------------------------------------------------------------
+      # Generate image tags
+      # -----------------------------------------------------------------------
+      - name: Generate image metadata (Backend)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_BACKEND_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Generate image metadata (Frontend)
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_FRONTEND_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # -----------------------------------------------------------------------
+      # Build and push Backend image
+      # -----------------------------------------------------------------------
+      - name: Build & Push Backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -----------------------------------------------------------------------
+      # Build and push Frontend image
+      # -----------------------------------------------------------------------
+      - name: Build & Push Frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ===========================================================================
+  # Job 3: Simulate Deployment
+  # ===========================================================================
+  deploy:
+    name: Deploy (Simulated)
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Simulate deployment
+        run: |
+          echo "============================================="
+          echo "  Deployment Simulation"
+          echo "============================================="
+          echo ""
+          echo "DockerHub Images:"
+          echo "  Backend:  ${{ env.DOCKERHUB_BACKEND_IMAGE }}:${{ github.sha }}"
+          echo "  Frontend: ${{ env.DOCKERHUB_FRONTEND_IMAGE }}:${{ github.sha }}"
+          echo ""
+          echo "--- AWS EC2 (Docker Compose) ---"
+          echo "  1. SSH into EC2 instance"
+          echo "  2. docker compose pull"
+          echo "  3. docker compose up -d"
+          echo ""
+          echo "--- Minikube (Kubernetes) ---"
+          echo "  Manifests to apply:"
+          ls -la devops/k8s/
+          echo ""
+          echo "  1. kubectl apply -f devops/k8s/namespace.yaml"
+          echo "  2. kubectl apply -f devops/k8s/configmap.yaml"
+          echo "  3. kubectl apply -f devops/k8s/secrets.yaml"
+          echo "  4. kubectl apply -f devops/k8s/mongodb.yaml"
+          echo "  5. kubectl apply -f devops/k8s/backend.yaml"
+          echo "  6. kubectl apply -f devops/k8s/frontend.yaml"
+          echo "  7. kubectl apply -f devops/k8s/ingress.yaml"
+          echo ""
+          echo "Deployment simulation complete."

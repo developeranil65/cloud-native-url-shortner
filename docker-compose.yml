@@ -1,0 +1,143 @@
+# =============================================================================
+# Cloud Native URL Shortener - Docker Compose (AWS EC2 Deployment)
+# =============================================================================
+# This file is designed for production deployment on AWS EC2 instances.
+# All images are pulled from DockerHub. No localhost references.
+#
+# Usage:
+#   docker compose up -d          Start all services
+#   docker compose down           Stop all services
+#   docker compose logs -f        Follow logs
+#   docker compose pull           Pull latest images from DockerHub
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Frontend - React SPA served via Nginx
+  # ---------------------------------------------------------------------------
+  frontend:
+    image: ${DOCKERHUB_USERNAME:-cloudlink}/cloudlink-frontend:${TAG:-latest}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cloudlink-frontend
+    ports:
+      - "80:80"
+    environment:
+      # Backend service name and port for Nginx proxy
+      - BACKEND_HOST=backend
+      - BACKEND_PORT=5000
+      # Runtime env config injected into the React app at container startup
+      - API_BASE_URL=/api
+      - BASE_URL=${PUBLIC_URL:-}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - cloudlink-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Backend - Node.js + Express API
+  # ---------------------------------------------------------------------------
+  backend:
+    image: ${DOCKERHUB_USERNAME:-cloudlink}/cloudlink-backend:${TAG:-latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cloudlink-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/url-shortener
+      - BASE_URL=${PUBLIC_URL:-http://frontend}
+      - NODE_ENV=production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - cloudlink-network
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MongoDB - Database
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongo:7
+    container_name: cloudlink-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - cloudlink-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Prometheus - Metrics Collection
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: cloudlink-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./devops/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - cloudlink-network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+
+  # ---------------------------------------------------------------------------
+  # Grafana - Metrics Visualization
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: cloudlink-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./devops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - cloudlink-network
+    restart: unless-stopped
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  mongo-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  cloudlink-network:
+    driver: bridge

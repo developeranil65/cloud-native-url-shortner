@@ -1,0 +1,15 @@
+# Grafana Dashboard Provisioning
+# Automatically loads dashboards from the specified folder on startup
+
+apiVersion: 1
+
+providers:
+  - name: 'CloudLink Dashboards'
+    orgId: 1
+    folder: 'CloudLink'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
+      foldersFromFilesStructure: false
