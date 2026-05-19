@@ -325,6 +325,7 @@ jobs:
             echo "Stopping old containers..."
             sudo docker compose down --remove-orphans || true
             sudo docker rm -f cloudlink-frontend cloudlink-backend cloudlink-mongodb cloudlink-prometheus cloudlink-grafana 2>/dev/null || true
+            sudo docker volume rm cloudlink_mongo-data 2>/dev/null || true
 
             echo "Starting containers..."
             sudo docker compose up -d
