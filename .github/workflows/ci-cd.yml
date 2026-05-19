@@ -231,6 +231,7 @@ jobs:
                   - "9090:9090"
                 volumes:
                   - prometheus-data:/prometheus
+                  - /opt/cloudlink/prometheus.yml:/etc/prometheus/prometheus.yml:ro
                 command:
                   - '--config.file=/etc/prometheus/prometheus.yml'
                   - '--storage.tsdb.path=/prometheus'
@@ -238,9 +239,6 @@ jobs:
                 networks:
                   - cloudlink-network
                 restart: unless-stopped
-                configs:
-                  - source: prometheus_config
-                    target: /etc/prometheus/prometheus.yml
 
               grafana:
                 image: grafana/grafana:latest
@@ -259,18 +257,6 @@ jobs:
                   - cloudlink-network
                 restart: unless-stopped
 
-            configs:
-              prometheus_config:
-                content: |
-                  global:
-                    scrape_interval: 15s
-                  scrape_configs:
-                    - job_name: 'cloudlink-backend'
-                      metrics_path: '/metrics'
-                      scrape_interval: 10s
-                      static_configs:
-                        - targets: ['backend:5000']
-
             volumes:
               mongo-data:
                 driver: local
@@ -283,6 +269,18 @@ jobs:
               cloudlink-network:
                 driver: bridge
             EOF
+
+            echo "Writing prometheus config..."
+            cat > prometheus.yml << 'PROMEOF'
+            global:
+              scrape_interval: 15s
+            scrape_configs:
+              - job_name: 'cloudlink-backend'
+                metrics_path: '/metrics'
+                scrape_interval: 10s
+                static_configs:
+                  - targets: ['backend:5000']
+            PROMEOF
 
             echo "Pulling latest images..."
             sudo docker compose pull
