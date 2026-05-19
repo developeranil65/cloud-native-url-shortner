@@ -154,6 +154,9 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
+          port: 22
+          timeout: 5m
+          command_timeout: 15m
           script: |
             echo "Waiting for EC2 provisioning to finish..."
             cloud-init status --wait
