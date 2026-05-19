@@ -77,9 +77,6 @@ resource "aws_security_group" "cloudlink_sg" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# EC2 Instance
-# -----------------------------------------------------------------------------
 resource "aws_instance" "cloudlink" {
   ami                    = var.ami_id != "" ? var.ami_id : data.aws_ami.ubuntu.id
   instance_type          = var.instance_type

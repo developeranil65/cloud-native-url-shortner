@@ -81,7 +81,7 @@ services:
 
   # Frontend - React SPA served via Nginx
   frontend:
-    image: DOCKERHUB_USER_PLACEHOLDER/url-shortener-frontend:latest
+    image: DOCKERHUB_USER_PLACEHOLDER/cloudlink-frontend:latest
     container_name: cloudlink-frontend
     ports:
       - "80:80"
@@ -99,7 +99,7 @@ services:
 
   # Backend - Node.js + Express API
   backend:
-    image: DOCKERHUB_USER_PLACEHOLDER/url-shortener-backend:latest
+    image: DOCKERHUB_USER_PLACEHOLDER/cloudlink-backend:latest
     container_name: cloudlink-backend
     ports:
       - "5000:5000"
