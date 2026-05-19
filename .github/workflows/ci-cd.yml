@@ -157,12 +157,12 @@ jobs:
           script: |
             echo "Waiting for EC2 provisioning to finish..."
             cloud-init status --wait
-            
+
             echo "Deploying CloudLink URL Shortener..."
             cd /opt/cloudlink
-            
+
             sudo docker compose pull
             sudo docker compose up -d
-            
+
             echo "Deployment successful! Current status:"
             sudo docker compose ps

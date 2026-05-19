@@ -33,8 +33,10 @@ apt-get install -y docker.io docker-compose-v2
 systemctl enable docker
 systemctl start docker
 
-# Add ubuntu user to docker group (for SSH access without sudo)
+# Add ubuntu user to docker group and allow sudo without password for CI/CD
 usermod -aG docker ubuntu
+echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu-nopasswd
+chmod 0440 /etc/sudoers.d/ubuntu-nopasswd
 
 # -----------------------------------------------------------------------------
 # 3. Install Git

@@ -104,3 +104,15 @@ resource "aws_instance" "cloudlink" {
     Project = var.project_name
   }
 }
+
+# Static Elastic IP — survives terraform destroy/apply cycles
+# Update EC2_HOST GitHub Secret once after first `terraform apply`; it never changes again.
+resource "aws_eip" "cloudlink" {
+  instance = aws_instance.cloudlink.id
+  domain   = "vpc"
+
+  tags = {
+    Name    = "${var.project_name}-eip"
+    Project = var.project_name
+  }
+}
