@@ -224,8 +224,59 @@ jobs:
                   retries: 5
                   start_period: 10s
 
+              prometheus:
+                image: prom/prometheus:latest
+                container_name: cloudlink-prometheus
+                ports:
+                  - "9090:9090"
+                volumes:
+                  - prometheus-data:/prometheus
+                command:
+                  - '--config.file=/etc/prometheus/prometheus.yml'
+                  - '--storage.tsdb.path=/prometheus'
+                  - '--web.enable-lifecycle'
+                networks:
+                  - cloudlink-network
+                restart: unless-stopped
+                configs:
+                  - source: prometheus_config
+                    target: /etc/prometheus/prometheus.yml
+
+              grafana:
+                image: grafana/grafana:latest
+                container_name: cloudlink-grafana
+                ports:
+                  - "3000:3000"
+                environment:
+                  - GF_AUTH_ANONYMOUS_ENABLED=true
+                  - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+                  - GF_AUTH_DISABLE_LOGIN_FORM=true
+                volumes:
+                  - grafana-data:/var/lib/grafana
+                depends_on:
+                  - prometheus
+                networks:
+                  - cloudlink-network
+                restart: unless-stopped
+
+            configs:
+              prometheus_config:
+                content: |
+                  global:
+                    scrape_interval: 15s
+                  scrape_configs:
+                    - job_name: 'cloudlink-backend'
+                      metrics_path: '/metrics'
+                      scrape_interval: 10s
+                      static_configs:
+                        - targets: ['backend:5000']
+
             volumes:
               mongo-data:
+                driver: local
+              prometheus-data:
+                driver: local
+              grafana-data:
                 driver: local
 
             networks:
@@ -238,7 +289,7 @@ jobs:
 
             echo "Stopping old containers..."
             sudo docker compose down --remove-orphans || true
-            sudo docker rm -f cloudlink-frontend cloudlink-backend cloudlink-mongodb 2>/dev/null || true
+            sudo docker rm -f cloudlink-frontend cloudlink-backend cloudlink-mongodb cloudlink-prometheus cloudlink-grafana 2>/dev/null || true
 
             echo "Starting containers..."
             sudo docker compose up -d

@@ -1,9 +1,3 @@
-# =============================================================================
-# Ingress Controller Configuration for Minikube
-# =============================================================================
-# Prerequisites:
-#   minikube addons enable ingress
-# =============================================================================
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -13,26 +7,24 @@ metadata:
     app.kubernetes.io/name: cloudlink
     app.kubernetes.io/component: ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    # Strip /api prefix when forwarding to backend (backend routes are /shorten, /urls etc)
+    nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   ingressClassName: nginx
   rules:
-    # Frontend: cloudlink.local
     - host: cloudlink.local
       http:
         paths:
-          # API routes -> backend
-          - path: /api
-            pathType: Prefix
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: backend-service
                 port:
                   number: 5000
-          # Health and metrics -> backend
           - path: /health
             pathType: Exact
             backend:
@@ -47,7 +39,6 @@ spec:
                 name: backend-service
                 port:
                   number: 5000
-          # Everything else -> frontend
           - path: /
             pathType: Prefix
             backend:

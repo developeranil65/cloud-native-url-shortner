@@ -1,8 +1,3 @@
-# =============================================================================
-# Frontend Deployment
-# =============================================================================
-# Image pulled from DockerHub: <your-dockerhub-username>/cloudlink-frontend
-# =============================================================================
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,13 +21,12 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: yourdockerhubusername/cloudlink-frontend:latest
+          image: developeranil754/cloudlink-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
               name: http
           env:
-            # Nginx backend proxy target (K8s service name)
             - name: BACKEND_HOST
               valueFrom:
                 configMapKeyRef:
@@ -43,7 +37,6 @@ spec:
                 configMapKeyRef:
                   name: cloudlink-config
                   key: BACKEND_PORT
-            # Runtime env config for the React app
             - name: API_BASE_URL
               value: "/api"
             - name: BASE_URL
@@ -71,9 +64,6 @@ spec:
               cpu: 200m
               memory: 128Mi
 ---
-# =============================================================================
-# Frontend Service
-# =============================================================================
 apiVersion: v1
 kind: Service
 metadata:
