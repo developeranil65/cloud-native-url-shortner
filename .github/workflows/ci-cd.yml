@@ -157,14 +157,86 @@ jobs:
           port: 22
           timeout: 5m
           command_timeout: 15m
+          envs: DOCKERHUB_USERNAME
           script: |
-            echo "Waiting for EC2 provisioning to finish..."
-            cloud-init status --wait
+            set -e
 
-            echo "Deploying CloudLink URL Shortener..."
+            echo "Setting up deployment directory..."
+            sudo mkdir -p /opt/cloudlink
+            sudo chown ubuntu:ubuntu /opt/cloudlink
             cd /opt/cloudlink
 
+            echo "Writing docker-compose.yml..."
+            cat > docker-compose.yml << 'EOF'
+            services:
+              frontend:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/cloudlink-frontend:latest
+                container_name: cloudlink-frontend
+                ports:
+                  - "80:80"
+                environment:
+                  - BACKEND_HOST=backend
+                  - BACKEND_PORT=5000
+                  - API_BASE_URL=/api
+                  - BASE_URL=
+                depends_on:
+                  backend:
+                    condition: service_healthy
+                networks:
+                  - cloudlink-network
+                restart: unless-stopped
+
+              backend:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/cloudlink-backend:latest
+                container_name: cloudlink-backend
+                ports:
+                  - "5000:5000"
+                environment:
+                  - PORT=5000
+                  - MONGO_URI=mongodb://mongodb:27017/url-shortener
+                  - BASE_URL=http://frontend
+                  - NODE_ENV=production
+                depends_on:
+                  mongodb:
+                    condition: service_healthy
+                networks:
+                  - cloudlink-network
+                restart: unless-stopped
+                healthcheck:
+                  test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+                  interval: 15s
+                  timeout: 5s
+                  retries: 5
+                  start_period: 15s
+
+              mongodb:
+                image: mongo:7
+                container_name: cloudlink-mongodb
+                volumes:
+                  - mongo-data:/data/db
+                networks:
+                  - cloudlink-network
+                restart: unless-stopped
+                healthcheck:
+                  test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 5
+                  start_period: 10s
+
+            volumes:
+              mongo-data:
+                driver: local
+
+            networks:
+              cloudlink-network:
+                driver: bridge
+            EOF
+
+            echo "Pulling latest images..."
             sudo docker compose pull
+
+            echo "Starting containers..."
             sudo docker compose up -d
 
             echo "Deployment successful! Current status:"
